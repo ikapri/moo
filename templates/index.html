@@ -1,0 +1,26 @@
+<html>
+    <head>
+    <script src='/static/socket.io.js'></script>
+        <script>
+             var socket = io.connect('/game');
+	     socket.on('wait', function(data){
+			     console.log('WAIT');
+		      });
+	     socket.on('turn', function(data){
+			     console.log('TURN');
+		      });
+	     socket.on('opponent_connected', function(data){
+			     console.log('Opponent Connected');
+		      });
+	     socket.on('opponent_guess', function(data){
+			     console.log('Opponent Guess');
+		      });
+	     socket.on('guess_response', function(data){
+			     console.log('Guess Response');
+		      });
+	     socket.on('opponent_disconnected', function(data){
+			     console.log('Opponent Disconnected');
+		      });
+        </script>
+    </head>
+</html>
