@@ -1,12 +1,80 @@
-from flask import Flask, request, render_template,send_file
+from flask import Flask, request, render_template
 import gevent
 from socketio import socketio_manage
 from socketio.namespace import BaseNamespace
 from flask.ext.sqlalchemy import SQLAlchemy
-from socketio import packet
 import json
 
 
+class Player():
+    def __init__(self, ns, number=None):
+        self.number = number 
+        self._ns = ns
+        self.id = ns.socket.sessid
+    
+    def is_ready(self):
+        return self.number is not None
+
+    def set_number(self, number):
+        self.number = number
+
+    def emit(self, event, *args):
+        self._ns.emit(event, args)
+
+class Game():
+    def __init__(self, p1=None, p2=None):
+        self.p1 = p1
+        self.p2 = p2
+        self.started = False
+
+    def add_player(self, player):
+        print "Adding Player: ",
+        print player.id
+        if self.p1 is None:
+            self.p1 = player
+            player.emit('PWAIT',' please wait')
+        elif self.p2 is None:
+            self.p2 = player
+            player.emit('connected','Connected')
+            self.p1.emit('connected', 'Connected')
+            self.started = True
+        else:
+            raise Exception('Game Already has two players')
+
+    def game_init(self):
+        print "Game Init"
+        pass
+
+    def start_game(self):
+        print "Start Game"
+        pass
+
+    def restart_game(self):
+        pass
+
+    def play_turn(self, player, guess):
+        print "Turn"
+        player.emit('asd', 'teri turn hui')
+        pass
+
+class GameServer():
+    def __init__(self):
+        self.games = []
+
+    def find_game_to_join(self):
+        """
+        Find a game to join or ele start a new game
+        and wait for someone else to join
+        """
+        for g in self.games:
+            if not g.started:
+                return g
+        g = Game()
+        self.games.append(g)
+        return g
+
+    
+gs = GameServer()
 class OpponentDisconnectedError(Exception):
     pass
 
@@ -15,19 +83,27 @@ class NoOpponentFoundException(Exception):
 
 class GameNamespace(BaseNamespace):
     def initialize(self):
-        opponent_sessid = self.find_opponent()
+        '''opponent_sessid = self.find_opponent()
         self.session['ready'] = False
         self.session['turn'] = 0
         if opponent_sessid:
             self.session['opponent'] = opponent_sessid
             self.emit('opponent_connected', opponent_sessid) 
             self.notify_opponent('opponent_connected', self.socket.sessid)
+            self.session['player_type'] = 'P2'
+            self.opponent = self.get_opponent()
         else:
             self.emit('wait', 'Please wait')
-        self.spawn(self.check_opponent)
+            self.session['player_type'] = 'P1'
+        self.spawn(self.check_opponent)'''
 
     def recv_connect(self):
         print "%s Connected" % self.socket.sessid
+        p=Player(self)
+        self.player = p
+        game=gs.find_game_to_join()
+        game.add_player(p)
+        self.game = game
 
     def on_ping(self, data):
         pass
@@ -49,26 +125,52 @@ class GameNamespace(BaseNamespace):
 
 
     def on_guess(self, data):
-        print 'Guess' + data
-        self.emit('guess_response', '3B 3C')
-        self.emit_opponent('opponent_guess', data)
-        self.emit_opponent('turn', '')
-        opponent = self.get_opponent()
-        opponent.session['turn'] = 1
-        self.session['turn'] = 0
+        '''resp = self.guess_response(data)
+        if resp['B'] == len(data):
+            self.emit('win', data)
+            self.notify_opponent('loss', data)
+        else:
+            self.session['turn'] = 0
+            self.emit('guess_response', resp)
+            self.notify_opponent('opponent_guess', data)'''
+        self.game.play_turn(self.player, data)
+
+    def on_loss(self, data):
+        self.emit('loss', data)
+
+    def on_opponent_guess(self, data):
+        self.session['turn'] = 1
+        self.emit('turn', '')
+        self.emit('opponent_guess', data)
 
     def guess_response(self, guess):
         opponent = self.get_opponent()
-        opponent_num = opponent['num']
-        return
+        opponent_num = opponent.session['num']
+        result = self.find_bulls_cows(opponent_num, guess)
+        return result
+
+    def find_bulls_cows(self, number, guess):
+        res = {'B':0 ,'C':0}
+        for index,num in enumerate(guess):
+            if num in number:
+                if number[index] == num:
+                    res['B']+=1
+                else:
+                    res['C']+=1
+        return res
 
     def on_num(self, data):
-        self.session['num'] = data
+        self.player.set_number = data
+        '''self.session['num'] = data
         self.session['ready'] = True
         if self.opponent_ready():
-            self.emit('turn', '')
-            self.session['turn'] = 1
-        print 'Num' + data
+            if self.session['player_type'] == 'P1':
+                self.emit('turn', '')
+                self.session['turn'] = 1
+            else:
+                self.notify_opponent('turn', '')
+                opponent = self.get_opponent()
+                opponent.session['turn'] = 1'''
 
     def opponent_ready(self):
         opponent = self.get_opponent()
