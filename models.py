@@ -2,12 +2,13 @@ import weakref
 import uuid
 
 GAME_WAITING = 0
-GAME_STARTED = 1
-GAME_FINISHED = 2
+GAME_CONNECTED = 1
+GAME_STARTED = 2
+GAME_FINISHED = 3
 
 class Game():
     def __del__(self):
-        print "GAME is being deleted"
+        print "GAME %s is being deleted" % self
 
     def __init__(self, p1=None, p2=None):
         self.id = str(uuid.uuid4())
@@ -17,7 +18,7 @@ class Game():
         if p1 is None or p2 is None:
             self.state = GAME_WAITING
         else:
-            self.state = GAME_STARTED
+            self.state = GAME_CONNECTED
 
     def find_bulls_cows(self, number, guess):
         res = {'B':0 ,'C':0}
@@ -38,7 +39,7 @@ class Game():
             self.p2 = player
             player.emit('opponent_connected','Connected')
             self.p1.emit('opponent_connected', 'Connected')
-            self.state = GAME_STARTED
+            self.state = GAME_CONNECTED
         else:
             raise Exception('Game Already has two players')
 
@@ -48,7 +49,11 @@ class Game():
 
     def start_game(self):
         print "Start Game"
+        self.state = GAME_STARTED
+        self.p1.emit('game_started')
+        self.p2.emit('game_started')
         self.p1.emit('turn')
+        self.p2.emit('wait_turn')
 
     def restart_game(self):
         pass
@@ -63,8 +68,9 @@ class Game():
         resp = self.find_bulls_cows(opp.number, guess)
         if not self.is_won(resp, guess):
             player.emit('guess_response', resp)
-            opp.emit('opponent_guess', resp)
-            opp.emit('turn', '')
+            opp.emit('opponent_guess', guess, resp)
+            opp.emit('turn')
+            player.emit('wait_turn')
         else:
             player.emit('won', guess)
             opp.emit('loss', guess)

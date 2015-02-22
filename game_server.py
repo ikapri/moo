@@ -3,6 +3,12 @@ import gevent
 
 games = []
 
+
+def get_game(player):
+    game = find_game_to_join()
+    game.add_player(player)
+    return game
+
 def find_game_to_join():
         """
         Find a game to join or ele start a new game

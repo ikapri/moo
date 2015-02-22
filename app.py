@@ -11,11 +11,14 @@ class GameNamespace(BaseNamespace):
         print "Deleting NS %s" % self.socket.sessid
 
     def initialize(self):
-        p = Player(self)
-        self.player = p 
-        game = gs.find_game_to_join()
-        game.add_player(p)
-        self.game = game
+        self.init_player()
+        self.join_or_create_game()
+
+    def init_player(self):
+        self.player = Player(self)
+
+    def join_or_create_game(self):
+        self.game = gs.get_game(self.player)
 
     def recv_connect(self):
         print "%s Connected" % self.socket.sessid
@@ -41,4 +44,3 @@ def sock(path):
 def home():
     print 'HOME'
     return render_template('index.html')
-
